@@ -8,5 +8,7 @@ import org.springframework.stereotype.Repository;
 public interface IGeoInfoRepository extends JpaRepository<GeoInfo, Integer> {
 
     //can define your own QUERIES
+    GeoInfo findByName(String name);
+
 
 }

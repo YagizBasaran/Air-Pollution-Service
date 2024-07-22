@@ -26,7 +26,7 @@ public class GeoInfoService implements IGeoInfoService{
     @Autowired
     private WebClient.Builder webClientBuilder;
 
-    private static final String API_KEY = "YOUR API KEY"; // Replace with your OpenWeatherMap API key
+    private static final String API_KEY = "4ad7c9811b1eee11febbd7fdf29e363e"; // Replace with your OpenWeatherMap API key
     private static final String BASE_URL = "http://api.openweathermap.org/data/2.5/weather";
 
     @Override
@@ -51,6 +51,7 @@ public class GeoInfoService implements IGeoInfoService{
 
         return weatherDTO;
     }
+
 
     @Override
     public void saveGeoInfo(GeoInfo geoInfo){
@@ -80,6 +81,12 @@ public class GeoInfoService implements IGeoInfoService{
         geoInfoRepository.deleteById(id);
 
     }
+
+    @Override
+    public GeoInfo getGeoInfoByCityName(String cityName) {
+        return geoInfoRepository.findByName(cityName);
+    }
+
 
 
 }
