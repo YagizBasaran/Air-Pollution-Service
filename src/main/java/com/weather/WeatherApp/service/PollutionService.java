@@ -1,6 +1,7 @@
 package com.weather.WeatherApp.service;
 
 import com.weather.WeatherApp.dto.PollutionDTO;
+import com.weather.WeatherApp.exceptions.InvalidDateException;
 import com.weather.WeatherApp.model.GeoInfo;
 import com.weather.WeatherApp.model.Pollution;
 import com.weather.WeatherApp.repository.IPollutionRepository;
@@ -18,6 +19,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -126,7 +128,7 @@ public class PollutionService implements IPollutionService {
 
         // Check if startDate is before the minimum valid date
         if (startDate.isBefore(minValidDate)) {
-            throw new IllegalArgumentException("Start date cannot be before 27-11-2020");
+            throw new InvalidDateException("Start date cannot be before 27-11-2020");
         }
 
         List<Map<String, Object>> results = new ArrayList<>();
@@ -135,9 +137,25 @@ public class PollutionService implements IPollutionService {
         List<LocalDate> dates = startDate.datesUntil(endDate.plusDays(1)).collect(Collectors.toList());
 
         for (LocalDate date : dates) {
+            Optional<Pollution> existingPollution = pollutionRepository.findByGeoInfoAndDate(geoInfo, date);
+            if (existingPollution.isPresent()) {
+                // If data exists, skip saving but include it in the results
+                Pollution pollution = existingPollution.get();
+                results.add(Map.of(
+                        "Date", date.format(formatter),
+                        "Categories", Map.of(
+                                "CO", categorizeCarbonMonoxide(pollution.getCarbonMonoxide()),
+                                "O3", categorizeOzone(pollution.getOzone()),
+                                "SO2", categorizeSulphurDioxide(pollution.getSulphurDioxide())
+                        )
+                ));
+                continue;
+            }
+
             PollutionDTO dto = getAirPollutionData(geoInfo.getLatitude(), geoInfo.getLongtitude());
 
             Pollution pollution = Pollution.builder()
+                    .geoInfo(geoInfo)
                     .date(date)
                     .carbonMonoxide(dto.getCarbonMonoxide())
                     .ozone(dto.getOzone())

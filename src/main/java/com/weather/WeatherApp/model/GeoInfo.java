@@ -6,7 +6,9 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 @Entity
-@Table(name = "GEOGRAPHICAL INFO")
+@Table(name = "GEOGRAPHICAL INFO", uniqueConstraints = {
+        @UniqueConstraint(columnNames = "name")
+})
 @Getter
 @Setter
 @NoArgsConstructor

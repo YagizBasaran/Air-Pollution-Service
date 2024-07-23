@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -46,8 +47,12 @@ public class GeoInfoController {
         }
 
         List<Map<String, Object>> results = pollutionService.fetchAndSavePollutionData(geoInfo, start, end);
-
-        return ResponseEntity.ok(Map.of("City", city, "Results", results));
+        // Use LinkedHashMap to maintain insertion order
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("City", city);
+        response.put("Results", results);
+        //return ResponseEntity.ok(Map.of("City", city, "Results", results));
+        return ResponseEntity.ok(response);
     }
 
 

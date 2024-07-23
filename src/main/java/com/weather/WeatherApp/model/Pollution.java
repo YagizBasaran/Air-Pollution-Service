@@ -6,7 +6,9 @@ import lombok.*;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "DAILY_AIR_POLLUTION")
+@Table(name = "DAILY_AIR_POLLUTION", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"geo_info_id", "date"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -17,9 +19,9 @@ public class Pollution {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private int id;
 
-    /*@ManyToOne
+    @ManyToOne
     @JoinColumn(name = "geo_info_id")
-    private GeoInfo geoInfo;*/
+    private GeoInfo geoInfo;
 
     private LocalDate date;
 
