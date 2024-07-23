@@ -1,7 +1,6 @@
 package com.weather.WeatherApp.service;
 
 import com.weather.WeatherApp.dto.GeoInfoDTO;
-import com.weather.WeatherApp.dto.PollutionDTO;
 import com.weather.WeatherApp.model.GeoInfo;
 
 import java.util.List;

@@ -1,7 +1,6 @@
 package com.weather.WeatherApp.controller;
 
 import com.weather.WeatherApp.dto.GeoInfoDTO;
-import com.weather.WeatherApp.dto.PollutionDTO;
 import com.weather.WeatherApp.model.GeoInfo;
 import com.weather.WeatherApp.service.IGeoInfoService;
 import com.weather.WeatherApp.service.IPollutionService;
@@ -15,8 +14,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 @RestController
 @RequestMapping("api/geo-infos")
