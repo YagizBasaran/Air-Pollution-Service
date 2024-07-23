@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 public interface IPollutionService {
-    PollutionDTO getAirPollutionData(double latitude, double longitude);
+    PollutionDTO getAirPollutionData(double latitude, double longitude, long startUnixTime, long endUnixTime);
 
     List<Map<String, Object>> fetchAndSavePollutionData(GeoInfo geoInfo, LocalDate start, LocalDate end);
 }

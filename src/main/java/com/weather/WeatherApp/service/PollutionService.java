@@ -15,6 +15,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,11 +36,11 @@ public class PollutionService implements IPollutionService {
     private WebClient.Builder webClientBuilder;
 
     private static final String API_KEY = "4ad7c9811b1eee11febbd7fdf29e363e";
-    private static final String AIR_POLLUTION_URL = "http://api.openweathermap.org/data/2.5/air_pollution";
+    private static final String AIR_POLLUTION_URL = "http://api.openweathermap.org/data/2.5/air_pollution/history";
 
     @Override
-    public PollutionDTO getAirPollutionData(double latitude, double longitude) {
-        String url = AIR_POLLUTION_URL + "?lat=" + latitude + "&lon=" + longitude + "&appid=" + API_KEY;
+    public PollutionDTO getAirPollutionData(double latitude, double longitude, long startUnixTime, long endUnixTime) {
+        String url = AIR_POLLUTION_URL + "?lat=" + latitude + "&lon=" + longitude + "&start=" + startUnixTime + "&end=" + endUnixTime + "&appid=" + API_KEY;
 
         Map<String, Object> response = webClientBuilder.build()
                 .get()
@@ -52,26 +53,41 @@ public class PollutionService implements IPollutionService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Air pollution data not found");
         }
 
-        Map<String, Object> airPollutionData = (Map<String, Object>) ((List<Object>) response.get("list")).get(0);
-        Map<String, Double> components = (Map<String, Double>) airPollutionData.get("components");
+        double totalCarbonMonoxide = 0;
+        double totalOzone = 0;
+        double totalSulphurDioxide = 0;
+        int count = 0;
 
-        double carbonMonoxide = components.getOrDefault("co", 0.0);
-        double ozone = components.getOrDefault("o3", 0.0);
-        double sulphurDioxide = components.getOrDefault("so2", 0.0);
+        List<Object> pollutionDataList = (List<Object>) response.get("list");
 
-        String carbonMonoxideCategory = categorizeCarbonMonoxide(carbonMonoxide);
-        String ozoneCategory = categorizeOzone(ozone);
-        String sulphurDioxideCategory = categorizeSulphurDioxide(sulphurDioxide);
+        for (Object item : pollutionDataList) {
+            Map<String, Object> airPollutionData = (Map<String, Object>) item;
+            Map<String, Number> components = (Map<String, Number>) airPollutionData.get("components");
+
+            totalCarbonMonoxide += components.getOrDefault("co", 0.0).doubleValue();
+            totalOzone += components.getOrDefault("o3", 0.0).doubleValue();
+            totalSulphurDioxide += components.getOrDefault("so2", 0.0).doubleValue();
+            count++;
+        }
+
+        double avgCarbonMonoxide = totalCarbonMonoxide / count;
+        double avgOzone = totalOzone / count;
+        double avgSulphurDioxide = totalSulphurDioxide / count;
+
+        String carbonMonoxideCategory = categorizeCarbonMonoxide(avgCarbonMonoxide);
+        String ozoneCategory = categorizeOzone(avgOzone);
+        String sulphurDioxideCategory = categorizeSulphurDioxide(avgSulphurDioxide);
 
         return PollutionDTO.builder()
-                .carbonMonoxide(carbonMonoxide)
+                .carbonMonoxide(avgCarbonMonoxide)
                 .carbonMonoxideCategory(carbonMonoxideCategory)
-                .ozone(ozone)
+                .ozone(avgOzone)
                 .ozoneCategory(ozoneCategory)
-                .sulphurDioxide(sulphurDioxide)
+                .sulphurDioxide(avgSulphurDioxide)
                 .sulphurDioxideCategory(sulphurDioxideCategory)
                 .build();
     }
+
 
     private String categorizeCarbonMonoxide(double carbonMonoxide) {
         if (carbonMonoxide > 34) {
@@ -137,6 +153,9 @@ public class PollutionService implements IPollutionService {
         List<LocalDate> dates = startDate.datesUntil(endDate.plusDays(1)).collect(Collectors.toList());
 
         for (LocalDate date : dates) {
+            long startUnixTime = date.atStartOfDay(ZoneOffset.UTC).toEpochSecond();
+            long endUnixTime = date.plusDays(1).atStartOfDay(ZoneOffset.UTC).toEpochSecond() - 1;
+
             Optional<Pollution> existingPollution = pollutionRepository.findByGeoInfoAndDate(geoInfo, date);
             if (existingPollution.isPresent()) {
                 // If data exists, skip saving but include it in the results
@@ -152,7 +171,7 @@ public class PollutionService implements IPollutionService {
                 continue;
             }
 
-            PollutionDTO dto = getAirPollutionData(geoInfo.getLatitude(), geoInfo.getLongtitude());
+            PollutionDTO dto = getAirPollutionData(geoInfo.getLatitude(), geoInfo.getLongtitude(),startUnixTime,endUnixTime);
 
             Pollution pollution = Pollution.builder()
                     .geoInfo(geoInfo)
