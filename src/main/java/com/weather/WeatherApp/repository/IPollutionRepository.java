@@ -13,4 +13,6 @@ public interface IPollutionRepository extends JpaRepository<Pollution, Integer> 
 
     //List<Pollution> findByCityAndDateBetween(String cityName, LocalDate startDate, LocalDate endDate);
     Optional<Pollution> findByGeoInfoAndDate(GeoInfo geoInfo, LocalDate date);
+
+
 }

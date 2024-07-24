@@ -13,6 +13,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -42,11 +43,16 @@ public class GeoInfoService implements IGeoInfoService{
 
         // Save to database
         if (weatherDTO != null && weatherDTO.getCoord() != null) {
-            GeoInfo weather = new GeoInfo();
-            weather.setLongtitude(weatherDTO.getCoord().getLon());
-            weather.setLatitude(weatherDTO.getCoord().getLat());
-            weather.setName(weatherDTO.getName());
-            geoInfoRepository.save(weather);
+            Optional<GeoInfo> existingGeoInfo = Optional.ofNullable(geoInfoRepository.findByName(cityName));
+
+            // Only save if it does not exist
+            if (existingGeoInfo.isEmpty()) {
+                GeoInfo weather = new GeoInfo();
+                weather.setLongtitude(weatherDTO.getCoord().getLon());
+                weather.setLatitude(weatherDTO.getCoord().getLat());
+                weather.setName(weatherDTO.getName());
+                geoInfoRepository.save(weather);
+            }
         }
 
         return weatherDTO;

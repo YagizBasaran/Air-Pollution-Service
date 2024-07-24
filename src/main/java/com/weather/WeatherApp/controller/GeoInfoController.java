@@ -1,6 +1,7 @@
 package com.weather.WeatherApp.controller;
 
 import com.weather.WeatherApp.dto.GeoInfoDTO;
+import com.weather.WeatherApp.dto.PollutionDTO;
 import com.weather.WeatherApp.model.GeoInfo;
 import com.weather.WeatherApp.service.IGeoInfoService;
 import com.weather.WeatherApp.service.IPollutionService;
@@ -29,7 +30,7 @@ public class GeoInfoController {
     }
 
     @GetMapping("/pollution")
-    public ResponseEntity<Map<String, Object>> getPollutionData(
+    public ResponseEntity getPollutionData(
             @RequestParam String city,
             @RequestParam String startDate,
             @RequestParam String endDate) {
@@ -43,13 +44,9 @@ public class GeoInfoController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "City not found"));
         }
 
-        List<Map<String, Object>> results = pollutionService.fetchAndSavePollutionData(geoInfo, start, end);
-        // Use LinkedHashMap to maintain insertion order
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("City", city);
-        response.put("Results", results);
-        //return ResponseEntity.ok(Map.of("City", city, "Results", results));
-        return ResponseEntity.ok(response);
+
+
+        return ResponseEntity.ok(pollutionService.fetchAndSavePollutionData(geoInfo, start, end));
     }
 
 
