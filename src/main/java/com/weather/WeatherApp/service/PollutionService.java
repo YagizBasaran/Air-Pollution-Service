@@ -14,13 +14,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,9 +38,10 @@ public class PollutionService implements IPollutionService {
     private static final String AIR_POLLUTION_URL = "http://api.openweathermap.org/data/2.5/air_pollution/history";
 
     @Override
-    public PollutionDTO getAirPollutionData(double latitude, double longitude, long startUnixTime, long endUnixTime) {
+    public List<PollutionDTO> getAirPollutionData(double latitude, double longitude, long startUnixTime, long endUnixTime) {
         String url = AIR_POLLUTION_URL + "?lat=" + latitude + "&lon=" + longitude + "&start=" + startUnixTime + "&end=" + endUnixTime + "&appid=" + API_KEY;
 
+        // Read response as a Map
         Map<String, Object> response = webClientBuilder.build()
                 .get()
                 .uri(url)
@@ -53,41 +53,143 @@ public class PollutionService implements IPollutionService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Air pollution data not found");
         }
 
-        double totalCarbonMonoxide = 0;
-        double totalOzone = 0;
-        double totalSulphurDioxide = 0;
-        int count = 0;
+        // Extract list of pollution data from the response
+        List<Map<String, Object>> list = (List<Map<String, Object>>) response.get("list");
 
-        List<Object> pollutionDataList = (List<Object>) response.get("list");
+        Map<LocalDate, List<Map<String, Object>>> dailyDataMap = new HashMap<>();
 
-        for (Object item : pollutionDataList) {
-            Map<String, Object> airPollutionData = (Map<String, Object>) item;
-            Map<String, Number> components = (Map<String, Number>) airPollutionData.get("components");
+        // Organize data by day
+        for (Map<String, Object> item : list) {
+            long timestamp = toLong(item.get("dt"));
+            LocalDate date = Instant.ofEpochSecond(timestamp).atZone(ZoneId.of("UTC")).toLocalDate();
 
-            totalCarbonMonoxide += components.getOrDefault("co", 0.0).doubleValue();
-            totalOzone += components.getOrDefault("o3", 0.0).doubleValue();
-            totalSulphurDioxide += components.getOrDefault("so2", 0.0).doubleValue();
-            count++;
+            dailyDataMap.computeIfAbsent(date, k -> new ArrayList<>()).add(item);
         }
 
-        double avgCarbonMonoxide = totalCarbonMonoxide / count;
-        double avgOzone = totalOzone / count;
-        double avgSulphurDioxide = totalSulphurDioxide / count;
+        List<PollutionDTO> dayByDayDataOfPollution = new ArrayList<>();
 
-        String carbonMonoxideCategory = categorizeCarbonMonoxide(avgCarbonMonoxide);
-        String ozoneCategory = categorizeOzone(avgOzone);
-        String sulphurDioxideCategory = categorizeSulphurDioxide(avgSulphurDioxide);
+        for (Map.Entry<LocalDate, List<Map<String, Object>>> entry : dailyDataMap.entrySet()) {
+            LocalDate date = entry.getKey();
+            List<Map<String, Object>> dailyItems = entry.getValue();
 
-        return PollutionDTO.builder()
-                .carbonMonoxide(avgCarbonMonoxide)
-                .carbonMonoxideCategory(carbonMonoxideCategory)
-                .ozone(avgOzone)
-                .ozoneCategory(ozoneCategory)
-                .sulphurDioxide(avgSulphurDioxide)
-                .sulphurDioxideCategory(sulphurDioxideCategory)
-                .build();
+            double totalCarbonMonoxide = 0;
+            double totalOzone = 0;
+            double totalSulphurDioxide = 0;
+
+            for (Map<String, Object> item : dailyItems) {
+                Map<String, Object> components = (Map<String, Object>) item.get("components");
+
+                double carbonMonoxide = toDouble(components.get("co"));
+                double ozone = toDouble(components.get("o3"));
+                double sulphurDioxide = toDouble(components.get("so2"));
+
+                totalCarbonMonoxide += carbonMonoxide;
+                totalOzone += ozone;
+                totalSulphurDioxide += sulphurDioxide;
+            }
+
+            int count = dailyItems.size();
+
+            double avgCarbonMonoxide = totalCarbonMonoxide / count;
+            double avgOzone = totalOzone / count;
+            double avgSulphurDioxide = totalSulphurDioxide / count;
+
+            String carbonMonoxideCategory = categorizeCarbonMonoxide(avgCarbonMonoxide);
+            String ozoneCategory = categorizeOzone(avgOzone);
+            String sulphurDioxideCategory = categorizeSulphurDioxide(avgSulphurDioxide);
+
+            PollutionDTO tempPollutionDTO = PollutionDTO.builder()
+                    .date(date)
+                    .carbonMonoxide(avgCarbonMonoxide)
+                    .carbonMonoxideCategory(carbonMonoxideCategory)
+                    .ozone(avgOzone)
+                    .ozoneCategory(ozoneCategory)
+                    .sulphurDioxide(avgSulphurDioxide)
+                    .sulphurDioxideCategory(sulphurDioxideCategory)
+                    .build();
+
+            dayByDayDataOfPollution.add(tempPollutionDTO);
+        }
+
+        return dayByDayDataOfPollution;
     }
 
+
+    // Helper method to convert Number to Double
+    private double toDouble(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        } else {
+            throw new IllegalArgumentException("Value is not a number");
+        }
+    }
+    // Helper method to convert Object to long
+    private long toLong(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        } else {
+            throw new IllegalArgumentException("Value is not a number");
+        }
+    }
+
+
+
+    public List<Map<String, Object>> fetchAndSavePollutionData(GeoInfo geoInfo, LocalDate startDate, LocalDate endDate) {
+
+        // Define the minimum valid date
+        LocalDate minValidDate = LocalDate.parse("27-11-2020", DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+
+        // Check if startDate is before the minimum valid date
+        if (startDate.isBefore(minValidDate)) {
+            throw new InvalidDateException("Start date cannot be before 27-11-2020");
+        }
+
+        long startUnixTime = startDate.atStartOfDay(ZoneOffset.UTC).toEpochSecond();
+        long endUnixTime = endDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toEpochSecond() - 1;
+
+        List<Map<String, Object>> results = new ArrayList<>();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+
+        List<PollutionDTO> pollutionDTOList = getAirPollutionData(geoInfo.getLatitude(), geoInfo.getLongtitude(),startUnixTime,endUnixTime);
+
+        for( PollutionDTO tmp : pollutionDTOList){
+            Pollution pollution = Pollution.builder()
+                    .geoInfo(geoInfo)
+                    .date(tmp.getDate())
+                    .carbonMonoxide(tmp.getCarbonMonoxide())
+                    .sulphurDioxide(tmp.getSulphurDioxide())
+                    .ozone(tmp.getOzone())
+                    .category(tmp.getCarbonMonoxideCategory() + ", " + tmp.getOzoneCategory() + ", " + tmp.getSulphurDioxideCategory())
+                    .build();
+
+            pollutionRepository.save(pollution);
+
+            Map<String, String> categories = new LinkedHashMap<>();
+            categories.put("CO", tmp.getCarbonMonoxideCategory());
+            categories.put("O3", tmp.getOzoneCategory());
+            categories.put("SO2", tmp.getSulphurDioxideCategory());
+
+            // Add results with Date before Categories
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("Date", tmp.getDate().format(formatter));
+            result.put("Categories", categories);
+
+            results.add(result);
+        }
+
+        // Sort results by date in ascending order
+        results.sort((r1, r2) -> {
+            LocalDate date1 = LocalDate.parse((String) r1.get("Date"), formatter);
+            LocalDate date2 = LocalDate.parse((String) r2.get("Date"), formatter);
+            return date1.compareTo(date2);
+        });
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("City", geoInfo.getName());
+        response.put("Results", results);
+
+        return Collections.singletonList(response);
+    }
 
     private String categorizeCarbonMonoxide(double carbonMonoxide) {
         if (carbonMonoxide > 34) {
@@ -135,65 +237,5 @@ public class PollutionService implements IPollutionService {
         } else {
             return "Good";
         }
-    }
-
-    public List<Map<String, Object>> fetchAndSavePollutionData(GeoInfo geoInfo, LocalDate startDate, LocalDate endDate) {
-
-        // Define the minimum valid date
-        LocalDate minValidDate = LocalDate.parse("27-11-2020", DateTimeFormatter.ofPattern("dd-MM-yyyy"));
-
-        // Check if startDate is before the minimum valid date
-        if (startDate.isBefore(minValidDate)) {
-            throw new InvalidDateException("Start date cannot be before 27-11-2020");
-        }
-
-        List<Map<String, Object>> results = new ArrayList<>();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-
-        List<LocalDate> dates = startDate.datesUntil(endDate.plusDays(1)).collect(Collectors.toList());
-
-        for (LocalDate date : dates) {
-            long startUnixTime = date.atStartOfDay(ZoneOffset.UTC).toEpochSecond();
-            long endUnixTime = date.plusDays(1).atStartOfDay(ZoneOffset.UTC).toEpochSecond() - 1;
-
-            Optional<Pollution> existingPollution = pollutionRepository.findByGeoInfoAndDate(geoInfo, date);
-            if (existingPollution.isPresent()) {
-                // If data exists, skip saving but include it in the results
-                Pollution pollution = existingPollution.get();
-                results.add(Map.of(
-                        "Date", date.format(formatter),
-                        "Categories", Map.of(
-                                "CO", categorizeCarbonMonoxide(pollution.getCarbonMonoxide()),
-                                "O3", categorizeOzone(pollution.getOzone()),
-                                "SO2", categorizeSulphurDioxide(pollution.getSulphurDioxide())
-                        )
-                ));
-                continue;
-            }
-
-            PollutionDTO dto = getAirPollutionData(geoInfo.getLatitude(), geoInfo.getLongtitude(),startUnixTime,endUnixTime);
-
-            Pollution pollution = Pollution.builder()
-                    .geoInfo(geoInfo)
-                    .date(date)
-                    .carbonMonoxide(dto.getCarbonMonoxide())
-                    .ozone(dto.getOzone())
-                    .sulphurDioxide(dto.getSulphurDioxide())
-                    .category(dto.getCarbonMonoxideCategory() + ", " + dto.getOzoneCategory() + ", " + dto.getSulphurDioxideCategory())
-                    .build();
-
-            pollutionRepository.save(pollution);
-
-            results.add(Map.of(
-                    "Date", date.format(formatter),
-                    "Categories", Map.of(
-                            "CO", dto.getCarbonMonoxideCategory(),
-                            "O3", dto.getOzoneCategory(),
-                            "SO2", dto.getSulphurDioxideCategory()
-                    )
-            ));
-        }
-
-        return results;
     }
 }
