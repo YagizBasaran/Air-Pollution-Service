@@ -34,7 +34,7 @@ public class PollutionService implements IPollutionService {
     @Autowired
     private WebClient.Builder webClientBuilder;
 
-    private static final String API_KEY = "4ad7c9811b1eee11febbd7fdf29e363e";
+    private static final String API_KEY = "YOUR API KEY";
     private static final String AIR_POLLUTION_URL = "http://api.openweathermap.org/data/2.5/air_pollution/history";
 
     @Override
