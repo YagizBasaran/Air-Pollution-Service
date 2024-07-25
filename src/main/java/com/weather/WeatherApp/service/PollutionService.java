@@ -20,6 +20,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -134,7 +135,6 @@ public class PollutionService implements IPollutionService {
 
 
     public List<Map<String, Object>> fetchAndSavePollutionData(GeoInfo geoInfo, LocalDate startDate, LocalDate endDate) {
-
         // Define the minimum valid date
         LocalDate minValidDate = LocalDate.parse("27-11-2020", DateTimeFormatter.ofPattern("dd-MM-yyyy"));
 
@@ -143,37 +143,85 @@ public class PollutionService implements IPollutionService {
             throw new InvalidDateException("Start date cannot be before 27-11-2020");
         }
 
-        long startUnixTime = startDate.atStartOfDay(ZoneOffset.UTC).toEpochSecond();
-        long endUnixTime = endDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toEpochSecond() - 1;
-
-        List<Map<String, Object>> results = new ArrayList<>();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+        List<Map<String, Object>> results = new ArrayList<>();
 
-        List<PollutionDTO> pollutionDTOList = getAirPollutionData(geoInfo.getLatitude(), geoInfo.getLongtitude(),startUnixTime,endUnixTime);
+        // Fetch data from database
+        List<Pollution> existingPollutions = pollutionRepository.findByGeoInfoAndDateBetween(geoInfo, startDate, endDate);
 
-        for( PollutionDTO tmp : pollutionDTOList){
-            Pollution pollution = Pollution.builder()
-                    .geoInfo(geoInfo)
-                    .date(tmp.getDate())
-                    .carbonMonoxide(tmp.getCarbonMonoxide())
-                    .sulphurDioxide(tmp.getSulphurDioxide())
-                    .ozone(tmp.getOzone())
-                    .category(tmp.getCarbonMonoxideCategory() + ", " + tmp.getOzoneCategory() + ", " + tmp.getSulphurDioxideCategory())
-                    .build();
+        // Map to store dates that are already in the database
+        Set<LocalDate> existingDates = existingPollutions.stream()
+                .map(Pollution::getDate)
+                .collect(Collectors.toSet());
 
-            pollutionRepository.save(pollution);
-
+        // Add existing data to results and log the source
+        for (Pollution pollution : existingPollutions) {
             Map<String, String> categories = new LinkedHashMap<>();
-            categories.put("CO", tmp.getCarbonMonoxideCategory());
-            categories.put("O3", tmp.getOzoneCategory());
-            categories.put("SO2", tmp.getSulphurDioxideCategory());
+            categories.put("CO", categorizeCarbonMonoxide(pollution.getCarbonMonoxide()));
+            categories.put("O3", categorizeOzone(pollution.getOzone()));
+            categories.put("SO2", categorizeSulphurDioxide(pollution.getSulphurDioxide()));
 
-            // Add results with Date before Categories
-            Map<String, Object> result = new LinkedHashMap<>();
-            result.put("Date", tmp.getDate().format(formatter));
-            result.put("Categories", categories);
+            results.add(Map.of(
+                    "Date", pollution.getDate().format(formatter),
+                    "Categories", categories,
+                    "Source", "Database"
+            ));
+        }
 
-            results.add(result);
+        // Determine missing date ranges
+        List<LocalDate> missingDates = new ArrayList<>();
+        for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+            if (!existingDates.contains(date)) {
+                missingDates.add(date);
+            }
+        }
+
+        // Fetch missing data from API
+        if (!missingDates.isEmpty()) {
+            // Process the missing dates in segments
+            List<PollutionDTO> pollutionDTOList = new ArrayList<>();
+            LocalDate currentStartDate = missingDates.get(0);
+            for (int i = 1; i < missingDates.size(); i++) {
+                LocalDate currentEndDate = missingDates.get(i);
+                // Check if the dates are contiguous
+                if (!currentEndDate.equals(missingDates.get(i - 1).plusDays(1))) {
+                    // Fetch data for the current segment
+                    long startUnixTime = currentStartDate.atStartOfDay(ZoneOffset.UTC).toEpochSecond();
+                    long endUnixTime = missingDates.get(i - 1).plusDays(1).atStartOfDay(ZoneOffset.UTC).toEpochSecond() - 1;
+                    pollutionDTOList.addAll(getAirPollutionData(geoInfo.getLatitude(), geoInfo.getLongtitude(), startUnixTime, endUnixTime));
+                    // Update currentStartDate to the new segment
+                    currentStartDate = currentEndDate;
+                }
+            }
+            // Fetch data for the last segment
+            long startUnixTime = currentStartDate.atStartOfDay(ZoneOffset.UTC).toEpochSecond();
+            long endUnixTime = missingDates.get(missingDates.size() - 1).plusDays(1).atStartOfDay(ZoneOffset.UTC).toEpochSecond() - 1;
+            pollutionDTOList.addAll(getAirPollutionData(geoInfo.getLatitude(), geoInfo.getLongtitude(), startUnixTime, endUnixTime));
+
+            // Save API data to database and add to results
+            for (PollutionDTO tmp : pollutionDTOList) {
+                Pollution pollution = Pollution.builder()
+                        .geoInfo(geoInfo)
+                        .date(tmp.getDate())
+                        .carbonMonoxide(tmp.getCarbonMonoxide())
+                        .sulphurDioxide(tmp.getSulphurDioxide())
+                        .ozone(tmp.getOzone())
+                        .category(tmp.getCarbonMonoxideCategory() + ", " + tmp.getOzoneCategory() + ", " + tmp.getSulphurDioxideCategory())
+                        .build();
+
+                pollutionRepository.save(pollution);
+
+                Map<String, String> categories = new LinkedHashMap<>();
+                categories.put("CO", tmp.getCarbonMonoxideCategory());
+                categories.put("O3", tmp.getOzoneCategory());
+                categories.put("SO2", tmp.getSulphurDioxideCategory());
+
+                results.add(Map.of(
+                        "Date", tmp.getDate().format(formatter),
+                        "Categories", categories,
+                        "Source", "API"
+                ));
+            }
         }
 
         // Sort results by date in ascending order
@@ -183,12 +231,13 @@ public class PollutionService implements IPollutionService {
             return date1.compareTo(date2);
         });
 
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("City", geoInfo.getName());
-        response.put("Results", results);
-
-        return Collections.singletonList(response);
+        return Collections.singletonList(Map.of(
+                "City", geoInfo.getName(),
+                "Results", results
+        ));
     }
+
+
 
     private String categorizeCarbonMonoxide(double carbonMonoxide) {
         if (carbonMonoxide > 34) {
