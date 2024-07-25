@@ -10,17 +10,17 @@ const count = ref(0)
 
 <template>
   <h1>{{ msg }}</h1>
-
+mmmmmmmmm  w w w w w
   <div class="card">
-    <button type="button" @click="count++">count is {{ count }}</button>
+    <button type="button" @click="count++">countq wq weqwewqewq is {{ count }}</button>
     <p>
-      Edit
-      <code>components/HelloWorld.vue</code> to test HMR
-    </p>
+      Edit qqqqqqqqqqqqq asd sad sa dsad
+      <code>components/HelloWorldweqeqweqweqw.vue</code> to test HMR
+    </p>sda dsa dasd sasafsa
   </div>
 
-  <p>
-    Check out
+  <p>sSs
+    Check out wwwwwwwwwwwwwww ooooooooooooooooA3A3A3A3A3A
     <a href="https://vuejs.org/guide/quick-start.html#local" target="_blank"
       >create-vue</a
     >, the official Vue + Vite starter
