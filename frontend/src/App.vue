@@ -1,17 +1,15 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
+import HelloWorld from './components/WeatherApp.vue'
 </script>
 
 <template>
   <div>
-    <a href="https://vitejs.dev" target="_blank">
-      <img src="/vite.svg" class="logo" alt="Vite logo" />
+    <a href="https://github.com/YagizBasaran/Air-Pollution-Service" target="_blank">
+      <img src="./assets/weather_img_1.svg" class="logo" alt="Vite logo" />
     </a>
-    <a href="https://vuejs.org/" target="_blank">
-      <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-    </a>
+      <img src="./assets/weather_img_2.svg" class="logo vue" alt="Vue logo" />
   </div>
-  <HelloWorld msg="Vite + Vue" />
+  <HelloWorld msg="Weather Pollution Data Service" />
 </template>
 
 <style scoped>
@@ -22,9 +20,9 @@ import HelloWorld from './components/HelloWorld.vue'
   transition: filter 300ms;
 }
 .logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
+  filter: drop-shadow(0 0 2em rgba(255, 182, 7, 0.67));
 }
 .logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
+  filter: drop-shadow(0 0 2em rgba(0, 63, 255, 0.67));
 }
 </style>
