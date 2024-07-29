@@ -77,11 +77,11 @@ export default defineComponent({
       </div>
       <div>
         <label for="start-date">Start Date:</label>
-        <input type="date" id="start-date" min="2020-11-27" v-model="startDate" required />
+        <input type="date" id="start-date" min="2020-11-27" v-model="startDate" :max="maxEndDate" required />
       </div>
       <div>
         <label for="end-date">End Date:</label>
-        <input type="date" id="end-date" v-model="endDate" :max="maxEndDate" required />
+        <input type="date" id="end-date" v-model="endDate" :max="maxEndDate" min="2020-11-27" required />
       </div>
       <button type="submit" :disabled="isLoading">Get Weather Pollution Data</button>
     </form>
@@ -96,7 +96,6 @@ export default defineComponent({
         <div class="skeleton-cell"></div>
         <div class="skeleton-cell"></div>
       </div>
-      <!-- Repeat skeleton-row as needed -->
     </div>
 
     <!-- Weather Data Table -->

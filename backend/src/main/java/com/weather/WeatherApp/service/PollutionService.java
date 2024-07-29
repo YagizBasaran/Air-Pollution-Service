@@ -90,7 +90,7 @@ public class PollutionService implements IPollutionService {
 
             int count = dailyItems.size();
 
-            double avgCarbonMonoxide = totalCarbonMonoxide / count;
+            double avgCarbonMonoxide = totalCarbonMonoxide / count / 1000;
             double avgOzone = totalOzone / count;
             double avgSulphurDioxide = totalSulphurDioxide / count;
 
