@@ -16,7 +16,7 @@ You only need [Docker](https://www.docker.com/) to run this application, everyth
 
 # Setup 🔧
 1. Download the repository folder (don't forget to un-zip it) and Docker, open it.
-2. From "command prompt" go to folder where docker-compose.yaml file resists (e.g *C:\Users\Downloads\Air-Pollution-Service*).
+2. From "command prompt" go to folder where *"docker-compose.yaml"* file resists (e.g *C:\Users\Downloads\Air-Pollution-Service*).
 3. Type in `docker-compose -f .\docker-compose.yaml up --build -d`
 4. You are done! Go to *"http://localhost:4000/"* and start using the application.
 
