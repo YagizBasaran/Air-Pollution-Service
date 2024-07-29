@@ -1,6 +1,10 @@
 # Air Pollution Data RESTful Service 🌤
 This project involves developing a RESTful application using **Java Spring Boot** to fetch and store historical air pollution data from the *OpenWeatherMap API* based on city name and date range. The application categorizes the pollutants using the air quality index categories and supports querying historical pollution data for specific cities. Additionally, front-end is available developed with **Vue**.
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/470ce972-49a4-4664-ba93-29832e53bcf2"/>
+</p>
+
 ## Features ✔
 - Fetches city coordinates using the Geocoding API from OpenWeatherMap.
 - Retrieves historical air pollution data using the Historical Air Pollution API from OpenWeatherMap.
